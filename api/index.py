@@ -76,7 +76,7 @@ def user_stats():
     catbox_latency = 0
     try:
         t1 = time.time()
-        r = requests.head("https://files.catbox.moe", timeout=2)
+        r = requests.head("https://files.catbox.moe", timeout=10)
         catbox_latency = round((time.time() - t1) * 1000, 2)
         if r.status_code >= 400: catbox_status = "DOWN"
     except:
