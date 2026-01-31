@@ -1,12 +1,13 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from pymongo import MongoClient
 import os
 import time
 import requests
 
-app = Flask(__name__)
+# Template folder ka path set karna padta hai Vercel ke liye
+app = Flask(__name__, template_folder='templates')
 
-# 🛠️ DATABASE CONNECTION (Vercel Env Var se lega)
+# 🛠️ DATABASE CONNECTION
 MONGO_URL = os.getenv("MONGO_DB_URI")
 client = MongoClient(MONGO_URL)
 db = client["MusicAPI_DB12"]
@@ -14,28 +15,32 @@ keys_col = db["api_users"]
 videos_col = db["videos_cacht"]
 alert_col = db["system_alerts"]
 
-# -----------------------------------
-# 🚀 1. USER DASHBOARD DATA
-# -----------------------------------
+# ==========================================
+# 🌐 1. WEBSITE ROUTE (Jo 404 aa raha tha wo fix)
+# ==========================================
+@app.route('/')
+def home():
+    # Ye templates/index.html file ko dhund kar dikha dega
+    return render_template('index.html')
+
+# ==========================================
+# 🚀 2. USER DASHBOARD API
+# ==========================================
 @app.route('/api/user/stats')
 def user_stats():
     key = request.args.get("key")
     start = time.time()
     
-    # 1. User Validate
     user = keys_col.find_one({"api_key": key})
     if not user: return jsonify({"status": 401, "error": "Invalid Key"})
 
-    # 2. Global Stats (Aggregate for speed)
     total_songs = videos_col.estimated_document_count()
     
-    # Total Hits (Sabka Jod)
     pipeline = [{"$group": {"_id": None, "total": {"$sum": "$total_usage"}}}]
     cursor = keys_col.aggregate(pipeline)
     res = list(cursor)
     global_hits = res[0]["total"] if res else 0
 
-    # 3. Server Checks
     catbox_status = "ONLINE"
     try:
         r = requests.head("https://files.catbox.moe", timeout=2)
@@ -43,11 +48,9 @@ def user_stats():
     except:
         catbox_status = "DOWN"
 
-    # 4. Alert Check
     alert = alert_col.find_one({"id": "main_alert"})
     alert_msg = alert.get("message") if alert and alert.get("active") else None
 
-    # 5. Speed Calc
     latency = round((time.time() - start) * 1000, 2)
 
     return jsonify({
@@ -70,13 +73,13 @@ def user_stats():
         }
     })
 
-# -----------------------------------
-# 🔄 2. TOGGLE API (ON/OFF)
-# -----------------------------------
+# ==========================================
+# 🔄 3. TOGGLE API
+# ==========================================
 @app.route('/api/user/toggle')
 def toggle_key():
     key = request.args.get("key")
-    action = request.args.get("action") # 'on' or 'off'
+    action = request.args.get("action")
     
     user = keys_col.find_one({"api_key": key})
     if not user: return jsonify({"status": 401})
@@ -85,12 +88,11 @@ def toggle_key():
     keys_col.update_one({"api_key": key}, {"$set": {"active": new_status}})
     return jsonify({"status": 200, "active": new_status})
 
-# -----------------------------------
-# 🚨 3. ADMIN SET ALERT (Bot se call karna)
-# -----------------------------------
+# ==========================================
+# 🚨 4. ADMIN ALERT
+# ==========================================
 @app.route('/api/admin/set-alert', methods=['POST'])
 def set_alert():
-    # Security: Add a secret header check here if needed
     data = request.json
     msg = data.get("message")
     active = data.get("active", True)
@@ -101,4 +103,3 @@ def set_alert():
         upsert=True
     )
     return jsonify({"status": "updated"})
-  
