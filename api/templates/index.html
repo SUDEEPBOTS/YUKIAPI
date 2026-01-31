@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Console | Analytics</title>
+    <title>API Console | Trinity</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
@@ -13,6 +13,8 @@
                 extend: {
                     colors: {
                         cyber: '#00ff9d',
+                        catbox: '#a855f7',
+                        render: '#f97316', // 🟠 Orange for Render API
                         darkbg: '#0a0a0a',
                         glass: 'rgba(255, 255, 255, 0.05)'
                     }
@@ -25,11 +27,11 @@
         body { font-family: 'JetBrains Mono', monospace; }
         .glass { background: rgba(20, 20, 20, 0.6); border: 1px solid #333; backdrop-filter: blur(10px); }
         .light .glass { background: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; }
-        /* Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
         ::-webkit-scrollbar-track { background: #111; }
         ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #00ff9d; }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
     </style>
 </head>
 <body class="bg-darkbg text-gray-200 h-screen overflow-hidden flex flex-col transition-colors duration-300">
@@ -64,7 +66,7 @@
         
         <div class="flex justify-between items-center mb-6">
             <div>
-                <h2 class="text-2xl font-bold flex items-center"><span class="text-cyber mr-2">⚡</span> CONSOLE</h2>
+                <h2 class="text-2xl font-bold flex items-center"><span class="text-cyber mr-2">⚡</span> TRINITY CONSOLE</h2>
                 <p class="text-[10px] text-gray-500">USER: <span id="dispName" class="text-white font-bold">...</span></p>
             </div>
             
@@ -83,6 +85,17 @@
 
         <div id="serverWarning" class="hidden mb-6 bg-red-900/30 border border-red-500 p-3 text-center text-red-400 text-xs font-bold rounded">⚠️ CATBOX SERVER UNREACHABLE</div>
 
+        <div class="glass p-4 rounded mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-gray-500 text-[10px] uppercase">⚡ Main API Latency (3s Realtime)</h3>
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-[10px] text-green-500">LIVE</span>
+                </div>
+            </div>
+            <div class="h-24"><canvas id="liveChart"></canvas></div>
+        </div>
+
         <div class="glass p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-4">
                 <div id="rankBadge" class="w-16 h-16 rounded-full flex items-center justify-center text-3xl bg-gray-800 border-2 border-gray-600 shadow-lg">🥉</div>
@@ -91,7 +104,6 @@
                     <h2 id="rankName" class="text-xl font-bold text-white">BRONZE</h2>
                 </div>
             </div>
-            
             <div class="w-full md:w-1/2">
                 <div class="flex justify-between text-xs mb-1"><span>Daily Usage</span><span id="limitText">0 / 50</span></div>
                 <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
@@ -103,54 +115,58 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div class="glass p-4 rounded">
-                <h3 class="text-gray-500 text-[10px] uppercase mb-2">📅 Monthly Activity (30 Days)</h3>
-                <div class="h-40">
-                    <canvas id="monthlyChart"></canvas>
-                </div>
-            </div>
-            <div class="glass p-4 rounded">
-                <h3 class="text-gray-500 text-[10px] uppercase mb-2">🕐 Today's Traffic (Hourly)</h3>
-                <div class="h-40">
-                    <canvas id="todayChart"></canvas>
-                </div>
-            </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">TOTAL HITS</h3><h2 id="myHits" class="text-2xl font-bold mt-1 text-cyber">0</h2></div>
+            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">USED TODAY</h3><h2 id="todayHits" class="text-2xl font-bold mt-1 text-white">0</h2></div>
+            <div class="glass p-4 rounded text-center border-l-2" id="speedCard"><h3 class="text-gray-500 text-[10px]">LATENCY</h3><h2 id="speedVal" class="text-2xl font-bold mt-1">0ms</h2></div>
+            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">DB SONGS</h3><h2 id="totalSongs" class="text-2xl font-bold mt-1">0</h2></div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="glass p-4 rounded text-center">
-                <h3 class="text-gray-500 text-[10px]">TOTAL HITS</h3>
-                <h2 id="myHits" class="text-2xl font-bold mt-1 text-cyber">0</h2>
+        <div class="glass p-4 rounded mb-6 border-t-2 border-render">
+            <div class="flex justify-between items-center mb-2">
+                <div class="flex items-center gap-2">
+                    <h3 class="text-gray-500 text-[10px] uppercase">🟠 External Render API (13s Update)</h3>
+                    <span id="renderStatus" class="text-[10px] bg-gray-800 px-2 rounded text-gray-400">WAITING...</span>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-500">LAST CHECK: <span id="renderLastCheck" class="text-white">--:--:--</span></p>
+                    <p class="text-[10px] text-gray-500">SPEED: <span id="renderSpeed" class="text-render font-bold">0ms</span></p>
+                </div>
             </div>
-            <div class="glass p-4 rounded text-center">
-                <h3 class="text-gray-500 text-[10px]">USED TODAY</h3>
-                <h2 id="todayHits" class="text-2xl font-bold mt-1 text-white">0</h2>
+            <div id="renderWarning" class="hidden bg-red-900/50 text-red-400 text-xs text-center p-2 rounded mb-2 font-bold animate-pulse">
+                🚨 API SERVER DOWN - TRY AGAIN LATER
             </div>
-            <div class="glass p-4 rounded text-center border-l-2" id="speedCard">
-                <h3 class="text-gray-500 text-[10px]">LATENCY</h3>
-                <h2 id="speedVal" class="text-2xl font-bold mt-1">0ms</h2>
+            <div class="h-24"><canvas id="renderChart"></canvas></div>
+        </div>
+
+        <div class="glass p-4 rounded mb-6 border-t-2 border-catbox">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="text-gray-500 text-[10px] uppercase">🐱 Catbox Server Health (15s Update)</h3>
+                <div class="flex items-center gap-2">
+                    <span id="catboxStatusText" class="text-xs font-bold text-catbox">CHECKING...</span>
+                </div>
             </div>
-            <div class="glass p-4 rounded text-center">
-                <h3 class="text-gray-500 text-[10px]">DB SONGS</h3>
-                <h2 id="totalSongs" class="text-2xl font-bold mt-1">0</h2>
-            </div>
+            <div class="h-24"><canvas id="catboxChart"></canvas></div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="glass p-4 rounded"><h3 class="text-gray-500 text-[10px] uppercase mb-2">📅 Monthly Activity</h3><div class="h-40"><canvas id="monthlyChart"></canvas></div></div>
+            <div class="glass p-4 rounded"><h3 class="text-gray-500 text-[10px] uppercase mb-2">🕐 Today's Traffic</h3><div class="h-40"><canvas id="todayChart"></canvas></div></div>
         </div>
 
         <button id="toggleBtn" onclick="toggleApi()" class="w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition">SYSTEM ACTIVE</button>
-        <div class="text-center mt-8 text-[10px] text-gray-600">ENCRYPTED • V4.0 ANALYTICS</div>
+        <div class="text-center mt-8 text-[10px] text-gray-600">ENCRYPTED • V6.0 TRINITY CORE</div>
     </div>
 
     <script>
         const ADMIN_TG = "https://t.me/zyroo100"; 
         const API_BASE = ""; 
         let myKey = localStorage.getItem("apiKey") || "";
-        let monthlyChartInstance, todayChartInstance;
+        
+        let monthlyChartInstance, todayChartInstance, liveChartInstance, catboxChartInstance, renderChartInstance;
+        let isSystemActive = true;
 
-        // Theme Init
         if (localStorage.getItem("theme") === "light") toggleTheme();
-
-        // Auto Login
         if(myKey) { document.getElementById("apiKeyInput").value = myKey; login(); }
 
         async function login() {
@@ -166,38 +182,104 @@
                     document.getElementById("dashboard").classList.remove("hidden");
                     document.getElementById("increaseBtn").href = `${ADMIN_TG}?start=limit_increase_${key}`;
                     
-                    renderData(data);
-                    initGraphs(data.graphs); // Initialize Charts
-                    setInterval(fetchData, 15000);
+                    renderMainStats(data);
+                    
+                    // INIT ALL CHARTS
+                    initGraphs(data.graphs);
+                    initLiveChart(); // Green
+                    initRenderChart(); // Orange (New)
+                    initCatboxChart(); // Purple
+
+                    updateToggleBtnUI(data.user_data.active);
+
+                    // 🚀 TRIPLE LOOP SYSTEM
+                    setInterval(fetchData, 15000);    // Main Data + Catbox (15s)
+                    setInterval(fetchLiveSpeed, 3000); // Main Speed (3s)
+                    setInterval(fetchRenderApi, 13000);// Render API (13s) <-- NEW LOOP
+
+                    // Initial Call
+                    fetchRenderApi();
                 } else {
                     document.getElementById("loginError").classList.remove("hidden");
                 }
             } catch(e) { console.error(e); }
         }
 
+        // --- 1. MAIN DATA LOOP (15s) ---
         async function fetchData() {
             const res = await fetch(`${API_BASE}/api/user/stats?key=${myKey}`);
             const data = await res.json();
-            renderData(data);
+            renderMainStats(data);
             updateGraphs(data.graphs);
+
+            // Catbox Update
+            const cLat = data.system.catbox_latency || 0;
+            updateChart(catboxChartInstance, cLat);
+            const cText = document.getElementById("catboxStatusText");
+            if(data.system.catbox_status === "DOWN") {
+                cText.innerText = "⚠️ DOWN"; cText.className = "text-xs font-bold text-red-500 blink";
+            } else {
+                cText.innerText = `ONLINE (${cLat}ms)`; cText.className = "text-xs font-bold text-catbox";
+            }
         }
 
-        function renderData(data) {
-            // Basic Info
+        // --- 2. LIVE SPEED LOOP (3s) ---
+        async function fetchLiveSpeed() {
+            const start = Date.now();
+            try {
+                await fetch(`${API_BASE}/api/user/stats?key=${myKey}`); 
+                const latency = Date.now() - start;
+                document.getElementById("speedVal").innerText = latency + "ms";
+                
+                const sCard = document.getElementById("speedCard");
+                sCard.className = `glass p-4 rounded text-center border-l-2 ${latency < 300 ? 'border-green-500' : 'border-red-500'}`;
+                
+                updateChart(liveChartInstance, latency);
+            } catch(e) {}
+        }
+
+        // --- 3. EXTERNAL RENDER API LOOP (13s) ---
+        async function fetchRenderApi() {
+            try {
+                const res = await fetch(`${API_BASE}/api/monitor/external`);
+                const data = await res.json();
+                
+                const statusBadge = document.getElementById("renderStatus");
+                const warningBox = document.getElementById("renderWarning");
+                const speedText = document.getElementById("renderSpeed");
+                document.getElementById("renderLastCheck").innerText = data.timestamp;
+
+                if (data.status === "ONLINE") {
+                    statusBadge.innerText = "ONLINE";
+                    statusBadge.className = "text-[10px] bg-green-900 text-green-400 px-2 rounded font-bold";
+                    warningBox.classList.add("hidden");
+                    speedText.innerText = data.latency + "ms";
+                    speedText.className = "text-render font-bold";
+                    updateChart(renderChartInstance, data.latency);
+                } else {
+                    statusBadge.innerText = "OFFLINE";
+                    statusBadge.className = "text-[10px] bg-red-900 text-red-400 px-2 rounded font-bold blink";
+                    warningBox.classList.remove("hidden");
+                    speedText.innerText = "0ms";
+                    speedText.className = "text-red-500 font-bold";
+                    updateChart(renderChartInstance, 0);
+                }
+            } catch(e) { console.error("Monitor Error", e); }
+        }
+
+        function renderMainStats(data) {
             document.getElementById("dispName").innerText = data.user_data.username || "User";
-            document.getElementById("newUsername").value = data.user_data.username || ""; // Prefill modal
+            document.getElementById("newUsername").value = data.user_data.username || "";
             document.getElementById("myHits").innerText = data.user_data.hits;
             document.getElementById("todayHits").innerText = data.user_data.today;
             document.getElementById("totalSongs").innerText = data.global_data.total_songs;
 
-            // Rank & Limit
             updateRank(data.user_data.hits);
             const limit = data.user_data.limit;
-            document.getElementById("limitText").innerText = `${data.user_data.today} / ${limit}`; // Showing Today/Limit now
+            document.getElementById("limitText").innerText = `${data.user_data.today} / ${limit}`;
             const pct = Math.min((data.user_data.today / limit) * 100, 100);
             document.getElementById("limitBar").style.width = `${pct}%`;
 
-            // Leaderboard
             const lbList = document.getElementById("lbList");
             lbList.innerHTML = "";
             data.global_data.leaderboard.forEach((u, i) => {
@@ -205,96 +287,71 @@
                 lbList.innerHTML += `<div class="flex justify-between items-center border-b border-gray-700 pb-2"><span class="text-sm">${medals[i] || "👤"} ${u.name}</span><span class="font-bold text-cyber">${u.hits}</span></div>`;
             });
 
-            // Speed & Status
-            const speed = data.system.api_speed;
-            document.getElementById("speedVal").innerText = speed + "ms";
-            const sCard = document.getElementById("speedCard");
-            sCard.className = `glass p-4 rounded text-center border-l-2 ${speed < 300 ? 'border-green-500' : 'border-red-500'}`;
-            
             const warn = document.getElementById("serverWarning");
             if(data.system.catbox_status === "DOWN") warn.classList.remove("hidden"); else warn.classList.add("hidden");
         }
 
-        // --- PROFILE UPDATE LOGIC ---
-        function toggleProfileModal() { document.getElementById("profileModal").classList.toggle("hidden"); }
-        
-        async function updateProfile() {
-            const newName = document.getElementById("newUsername").value;
-            if(!newName) return;
-            
-            await fetch(`${API_BASE}/api/user/update_profile`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key: myKey, username: newName })
-            });
-            toggleProfileModal();
-            fetchData(); // Refresh UI
+        function updateToggleBtnUI(active) {
+            isSystemActive = active;
+            const btn = document.getElementById("toggleBtn");
+            if(active) {
+                btn.innerText = "SYSTEM ACTIVE (CLICK TO PAUSE)";
+                btn.className = "w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition";
+            } else {
+                btn.innerText = "SYSTEM PAUSED (CLICK TO RESUME)";
+                btn.className = "w-full py-4 border border-red-500 text-red-500 font-bold rounded hover:bg-red-500 hover:text-black transition";
+            }
         }
 
-        // --- GRAPH LOGIC ---
-        function initGraphs(graphs) {
-            // Monthly Chart (Bar)
-            const ctx1 = document.getElementById('monthlyChart').getContext('2d');
-            monthlyChartInstance = new Chart(ctx1, {
-                type: 'bar',
-                data: {
-                    labels: Array.from({length: 30}, (_, i) => i + 1),
-                    datasets: [{
-                        label: 'Hits',
-                        data: graphs.monthly,
-                        backgroundColor: '#00ff9d',
-                        borderRadius: 2
-                    }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
-            });
+        async function toggleApi() {
+            const action = isSystemActive ? "off" : "on";
+            updateToggleBtnUI(!isSystemActive);
+            await fetch(`${API_BASE}/api/user/toggle?key=${myKey}&action=${action}`);
+            fetchData();
+        }
 
-            // Today Chart (Line)
+                // --- CHARTS CONFIG ---
+        function initGraphs(graphs) {
+            const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+            monthlyChartInstance = new Chart(ctx1, { type: 'bar', data: { labels: Array.from({length: 30}, (_, i) => i + 1), datasets: [{ label: 'Hits', data: graphs.monthly, backgroundColor: '#00ff9d', borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } });
             const ctx2 = document.getElementById('todayChart').getContext('2d');
-            todayChartInstance = new Chart(ctx2, {
+            todayChartInstance = new Chart(ctx2, { type: 'line', data: { labels: Array.from({length: 24}, (_, i) => `${i}:00`), datasets: [{ label: 'Hourly', data: graphs.today, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } });
+        }
+        
+        function initLiveChart() { liveChartInstance = createLineChart(document.getElementById('liveChart').getContext('2d'), '#00ff9d'); }
+        function initCatboxChart() { catboxChartInstance = createLineChart(document.getElementById('catboxChart').getContext('2d'), '#a855f7'); }
+        function initRenderChart() { renderChartInstance = createLineChart(document.getElementById('renderChart').getContext('2d'), '#f97316'); } // Orange
+
+        function createLineChart(ctx, color) {
+            return new Chart(ctx, {
                 type: 'line',
                 data: {
-                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
-                    datasets: [{
-                        label: 'Hourly Hits',
-                        data: graphs.today,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }]
+                    labels: Array(20).fill(''),
+                    datasets: [{ data: Array(20).fill(0), borderColor: color, backgroundColor: color + '10', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+                options: {
+                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                    scales: { x: { display: false }, y: { display: true, grid: { color: '#333' } } }, animation: { duration: 0 }
+                }
             });
+        }
+
+        function updateChart(chart, val) {
+            if(!chart) return;
+            const data = chart.data.datasets[0].data;
+            data.shift(); data.push(val); chart.update();
         }
 
         function updateGraphs(graphs) {
-            if(monthlyChartInstance) {
-                monthlyChartInstance.data.datasets[0].data = graphs.monthly;
-                monthlyChartInstance.update();
-            }
-            if(todayChartInstance) {
-                todayChartInstance.data.datasets[0].data = graphs.today;
-                todayChartInstance.update();
-            }
+            if(monthlyChartInstance) { monthlyChartInstance.data.datasets[0].data = graphs.monthly; monthlyChartInstance.update(); }
+            if(todayChartInstance) { todayChartInstance.data.datasets[0].data = graphs.today; todayChartInstance.update(); }
         }
 
-        // Helpers
+        function toggleProfileModal() { document.getElementById("profileModal").classList.toggle("hidden"); }
+        async function updateProfile() { const newName = document.getElementById("newUsername").value; if(!newName) return; await fetch(`${API_BASE}/api/user/update_profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: myKey, username: newName }) }); toggleProfileModal(); fetchData(); }
         function toggleLeaderboard() { document.getElementById("leaderboardModal").classList.toggle("hidden"); }
-        function toggleTheme() {
-            const html = document.documentElement;
-            if (html.classList.contains('dark')) { html.classList.remove('dark'); html.classList.add('light'); localStorage.setItem("theme", "light"); document.getElementById("themeIcon").innerText = "🌙"; }
-            else { html.classList.remove('light'); html.classList.add('dark'); localStorage.setItem("theme", "dark"); document.getElementById("themeIcon").innerText = "☀️"; }
-        }
-        function updateRank(hits) {
-            const badge = document.getElementById("rankBadge");
-            const name = document.getElementById("rankName");
-            if(hits > 5000) { badge.innerText = "💎"; name.innerText = "DIAMOND"; name.className="text-xl font-bold text-blue-400"; }
-            else if(hits > 2000) { badge.innerText = "🥇"; name.innerText = "GOLD"; name.className="text-xl font-bold text-yellow-400"; }
-            else if(hits > 500) { badge.innerText = "🥈"; name.innerText = "SILVER"; name.className="text-xl font-bold text-gray-300"; }
-            else { badge.innerText = "🥉"; name.innerText = "BRONZE"; name.className="text-xl font-bold text-orange-400"; }
-        }
+        function toggleTheme() { const html = document.documentElement; if (html.classList.contains('dark')) { html.classList.remove('dark'); html.classList.add('light'); localStorage.setItem("theme", "light"); document.getElementById("themeIcon").innerText = "🌙"; } else { html.classList.remove('light'); html.classList.add('dark'); localStorage.setItem("theme", "dark"); document.getElementById("themeIcon").innerText = "☀️"; } }
+        function updateRank(hits) { const badge = document.getElementById("rankBadge"); const name = document.getElementById("rankName"); if(hits > 5000) { badge.innerText = "💎"; name.innerText = "DIAMOND"; name.className="text-xl font-bold text-blue-400"; } else if(hits > 2000) { badge.innerText = "🥇"; name.innerText = "GOLD"; name.className="text-xl font-bold text-yellow-400"; } else if(hits > 500) { badge.innerText = "🥈"; name.innerText = "SILVER"; name.className="text-xl font-bold text-gray-300"; } else { badge.innerText = "🥉"; name.innerText = "BRONZE"; name.className="text-xl font-bold text-orange-400"; } }
         function logout() { localStorage.removeItem("apiKey"); location.reload(); }
     </script>
 </body>
