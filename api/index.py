@@ -24,7 +24,7 @@ def home():
     return render_template('index.html')
 
 # ==========================================
-# 🚀 USER DASHBOARD API
+# 🚀 USER DASHBOARD API (Updated with Latency)
 # ==========================================
 @app.route('/api/user/stats')
 def user_stats():
@@ -46,17 +46,14 @@ def user_stats():
     top_users_cursor = keys_col.find().sort("total_usage", -1).limit(5)
     leaderboard = []
     for u in top_users_cursor:
-        masked_key = (u.get("username", "User")[:10])  # Name dikhayenge ab
+        masked_key = (u.get("username", "User")[:10])
         if not u.get("username"): masked_key = "..." + u["api_key"][-4:]
         leaderboard.append({"name": masked_key, "hits": u.get("total_usage", 0)})
 
-    # 4. GRAPHS DATA (Smart Generation)
-    # Note: Asli history DB mein nahi hai, isliye hum Total Usage ke base pe pattern bana rahe hain
-    # taaki dashboard khali na lage. Real production mein alag collection banegi.
-    
+    # 4. GRAPHS DATA (Smart Generation - Purana Logic)
     current_hits = user.get("total_usage", 0)
     
-    # Generate Monthly Data (Last 30 Days Pattern)
+    # Generate Monthly Data
     monthly_data = []
     temp_hits = current_hits
     for i in range(30):
@@ -64,24 +61,27 @@ def user_stats():
         monthly_data.append(val)
         temp_hits -= val
         if temp_hits <= 0: break
-    monthly_data.reverse() # Aaj ka data last mein
+    monthly_data.reverse()
 
-    # Generate Today's Hourly Data (24 Hours)
+    # Generate Today's Hourly Data
     today_hits = user.get("used_today", 0)
     today_data = [0] * 24
     current_hour = datetime.now().hour
-    
-    # Distribute today's hits across hours passed
     for _ in range(today_hits):
         hr = random.randint(0, current_hour)
         today_data[hr] += 1
 
-    # 5. Server Checks
+    # 5. CATBOX SERVER CHECK (Updated with Speed) 🟣
     catbox_status = "ONLINE"
+    catbox_latency = 0
     try:
-        requests.head("https://files.catbox.moe", timeout=1)
+        t1 = time.time()
+        r = requests.head("https://files.catbox.moe", timeout=2)
+        catbox_latency = round((time.time() - t1) * 1000, 2)
+        if r.status_code >= 400: catbox_status = "DOWN"
     except:
         catbox_status = "DOWN"
+        catbox_latency = 0
 
     alert = alert_col.find_one({"id": "main_alert"})
     alert_msg = alert.get("message") if alert and alert.get("active") else None
@@ -109,8 +109,39 @@ def user_stats():
         "system": {
             "api_speed": latency,
             "catbox_status": catbox_status,
+            "catbox_latency": catbox_latency, # <-- Added for Purple Graph
             "alert": alert_msg
         }
+    })
+
+# ==========================================
+# 🟠 NEW: EXTERNAL MONITOR ROUTE (For Orange Graph)
+# ==========================================
+@app.route('/api/monitor/external')
+def monitor_external():
+    # Tera External API URL
+    target_url = "https://fastapi2-wdtl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
+    status = "ONLINE"
+    latency = 0
+    timestamp = datetime.now().strftime("%H:%M:%S")
+
+    try:
+        start = time.time()
+        # Request bhej ke check kar rahe hain
+        r = requests.get(target_url, timeout=10)
+        latency = round((time.time() - start) * 1000, 2)
+        
+        # Agar 200 OK nahi aaya toh Down maano
+        if r.status_code != 200:
+            status = "DOWN"
+    except Exception as e:
+        status = "DOWN"
+        latency = 0
+    
+    return jsonify({
+        "status": status,
+        "latency": latency,
+        "timestamp": timestamp
     })
 
 # ==========================================
@@ -124,7 +155,6 @@ def update_profile():
     
     if not key or not new_name: return jsonify({"status": 400})
     
-    # Update DB
     keys_col.update_one({"api_key": key}, {"$set": {"username": new_name}})
     return jsonify({"status": 200, "message": "Updated"})
 
