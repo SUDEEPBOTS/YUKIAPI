@@ -1,317 +1,301 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Console | Dashboard</title>
+    <title>API Console | Analytics</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: '#00ff9d',
+                        darkbg: '#0a0a0a',
+                        glass: 'rgba(255, 255, 255, 0.05)'
+                    }
+                }
+            }
+        }
+    </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-        
-        body { background-color: #0a0a0a; color: #e5e5e5; font-family: 'JetBrains Mono', monospace; }
-        .glass { background: rgba(20, 20, 20, 0.8); border: 1px solid #333; backdrop-filter: blur(10px); }
-        .accent { color: #00ff9d; }
-        .btn-primary { background: #00ff9d; color: black; font-weight: bold; transition: 0.3s; }
-        .btn-primary:hover { background: #00cc7d; box-shadow: 0 0 15px rgba(0, 255, 157, 0.4); }
-        
-        /* Status Colors */
-        .status-good { color: #00ff9d; border-color: #00ff9d; }
-        .status-avg { color: #facc15; border-color: #facc15; }
-        .status-bad { color: #ff3333; border-color: #ff3333; }
-
-        /* Loader */
-        .loader { border-top-color: #00ff9d; -webkit-animation: spinner 1.5s linear infinite; animation: spinner 1.5s linear infinite; }
-        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        body { font-family: 'JetBrains Mono', monospace; }
+        .glass { background: rgba(20, 20, 20, 0.6); border: 1px solid #333; backdrop-filter: blur(10px); }
+        .light .glass { background: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; }
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #111; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #00ff9d; }
     </style>
 </head>
-<body class="h-screen overflow-hidden flex flex-col">
+<body class="bg-darkbg text-gray-200 h-screen overflow-hidden flex flex-col transition-colors duration-300">
 
     <div id="loginScreen" class="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center">
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold tracking-widest mb-2">SYSTEM ACCESS</h1>
-            <p class="text-gray-500 text-xs">SECURE GATEWAY v2.0</p>
-        </div>
-        <div class="glass p-8 rounded w-96">
-            <label class="text-xs text-gray-400 mb-2 block">ENTER API IDENTIFIER</label>
-            <input type="text" id="apiKeyInput" class="w-full bg-black border border-gray-700 p-3 text-center text-white focus:outline-none focus:border-green-500 transition mb-4" placeholder="XXXX-XXXX-XXXX">
-            <button onclick="login()" class="w-full py-3 btn-primary uppercase tracking-wider text-sm">Initialize Session</button>
-            <p id="loginError" class="text-red-500 text-xs mt-4 hidden text-center">❌ AUTHENTICATION FAILED</p>
+        <h1 class="text-4xl font-bold tracking-widest mb-2 text-cyber">SYSTEM ACCESS</h1>
+        <div class="glass p-8 rounded w-96 text-center">
+            <input type="text" id="apiKeyInput" class="w-full bg-black/50 border border-gray-600 p-3 text-center text-white focus:border-cyber mb-4 rounded" placeholder="ENTER API KEY">
+            <button onclick="login()" class="w-full py-3 bg-cyber text-black font-bold hover:bg-green-400 transition rounded">INITIALIZE</button>
+            <p id="loginError" class="text-red-500 text-xs mt-4 hidden">❌ INVALID KEY</p>
         </div>
     </div>
 
-    <div id="alertModal" class="hidden absolute inset-0 z-40 bg-black/80 flex items-center justify-center">
-        <div class="glass border border-red-500 p-6 max-w-md w-full rounded relative shadow-[0_0_30px_rgba(255,0,0,0.2)]">
-            <h3 class="text-red-500 font-bold text-lg mb-2 flex items-center">
-                <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                SYSTEM ALERT
-            </h3>
-            <p id="alertMsg" class="text-gray-300 text-sm mb-6">...</p>
-            <button onclick="closeAlert()" class="w-full border border-red-800 text-red-500 hover:bg-red-900/50 py-2 text-xs">ACKNOWLEDGE & CLOSE</button>
+    <div id="profileModal" class="hidden absolute inset-0 z-50 bg-black/80 flex items-center justify-center backdrop-blur-sm">
+        <div class="glass p-6 max-w-sm w-full rounded shadow-2xl relative border border-cyber">
+            <button onclick="toggleProfileModal()" class="absolute top-2 right-4 text-gray-500 hover:text-white">X</button>
+            <h3 class="text-cyber font-bold text-lg mb-4 text-center">✏️ UPDATE IDENTITY</h3>
+            <input type="text" id="newUsername" class="w-full bg-black/50 border border-gray-600 p-2 mb-4 text-white rounded" placeholder="New Username">
+            <button onclick="updateProfile()" class="w-full py-2 bg-cyber text-black font-bold rounded hover:bg-white transition">SAVE CHANGES</button>
         </div>
     </div>
 
-    <div id="dashboard" class="hidden flex-1 p-6 md:p-10 overflow-y-auto">
-        <div class="flex justify-between items-end mb-8 border-b border-gray-800 pb-4">
+    <div id="leaderboardModal" class="hidden absolute inset-0 z-40 bg-black/80 flex items-center justify-center backdrop-blur-sm">
+        <div class="glass p-6 max-w-sm w-full rounded shadow-2xl relative">
+            <button onclick="toggleLeaderboard()" class="absolute top-2 right-4 text-red-500 font-bold">X</button>
+            <h3 class="text-cyber font-bold text-xl mb-4 text-center">🏆 TOP USERS</h3>
+            <div id="lbList" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden flex-1 p-4 md:p-8 overflow-y-auto">
+        
+        <div class="flex justify-between items-center mb-6">
             <div>
-                <h2 class="text-2xl font-bold text-white flex items-center">
-                    <svg class="w-6 h-6 mr-3 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
-                    CONSOLE
-                </h2>
-                <p class="text-xs text-gray-500 mt-1">ID: <span id="dispKey">...</span></p>
+                <h2 class="text-2xl font-bold flex items-center"><span class="text-cyber mr-2">⚡</span> CONSOLE</h2>
+                <p class="text-[10px] text-gray-500">USER: <span id="dispName" class="text-white font-bold">...</span></p>
             </div>
-            <div class="text-right">
-                <button onclick="logout()" class="text-xs text-red-500 hover:text-red-400 uppercase tracking-wide">Terminate Session [X]</button>
-            </div>
-        </div>
-
-        <div id="serverWarning" class="hidden mb-6 bg-red-900/20 border border-red-500/50 p-3 flex items-center justify-center text-red-400 text-xs font-bold">
-            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-            CONNECTION INSTABILITY DETECTED: CATBOX SERVERS UNREACHABLE
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             
-            <div class="glass p-5 rounded">
-                <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-2">Personal Usage</h3>
-                <div class="flex items-baseline">
-                    <h2 id="myHits" class="text-3xl font-bold text-white">0</h2>
-                    <span class="text-gray-600 text-xs ml-2">/ REQUESTS</span>
-                </div>
-            </div>
-
-            <div id="speedCard" class="glass p-5 rounded border-l-4 border-gray-700 transition-colors duration-300">
-                <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-2">Live Latency</h3>
-                <div class="flex items-baseline">
-                    <h2 id="speedVal" class="text-3xl font-bold text-white">0</h2>
-                    <span class="text-gray-600 text-xs ml-2">ms</span>
-                </div>
-                <div class="mt-2 w-full bg-gray-800 h-1 rounded overflow-hidden">
-                    <div id="speedBar" class="bg-gray-500 h-full w-0 transition-all duration-500"></div>
-                </div>
-            </div>
-
-            <div class="glass p-5 rounded">
-                <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-2">Database Index</h3>
-                <div class="flex items-baseline">
-                    <h2 id="totalSongs" class="text-3xl font-bold text-white">0</h2>
-                    <span class="text-gray-600 text-xs ml-2">TRACKS</span>
-                </div>
-            </div>
-
-            <div class="glass p-5 rounded">
-                <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-2">Global Traffic</h3>
-                <div class="flex items-baseline">
-                    <h2 id="globalHits" class="text-3xl font-bold text-white">0</h2>
-                    <span class="text-gray-600 text-xs ml-2">HITS</span>
+            <div class="flex items-center gap-3 relative">
+                <button onclick="toggleTheme()" class="p-2 rounded-full hover:bg-gray-700 transition" title="Toggle Theme"><span id="themeIcon">☀️</span></button>
+                <div class="relative group">
+                    <button class="p-2 text-xl hover:text-cyber">⋮</button>
+                    <div class="absolute right-0 mt-2 w-40 bg-gray-900 border border-gray-700 rounded shadow-xl hidden group-hover:block z-10">
+                        <button onclick="toggleProfileModal()" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-800 hover:text-cyber">✏️ Edit Name</button>
+                        <button onclick="toggleLeaderboard()" class="block w-full text-left px-4 py-2 text-sm hover:bg-gray-800 hover:text-cyber">🏆 Leaderboard</button>
+                        <button onclick="logout()" class="block w-full text-left px-4 py-2 text-sm text-red-400 hover:bg-gray-800">🚪 Logout</button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div class="glass p-5 rounded md:col-span-2">
-                <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-4">Network Activity (Realtime)</h3>
-                <div class="h-64">
-                    <canvas id="liveChart"></canvas>
-                </div>
-            </div>
+        <div id="serverWarning" class="hidden mb-6 bg-red-900/30 border border-red-500 p-3 text-center text-red-400 text-xs font-bold rounded">⚠️ CATBOX SERVER UNREACHABLE</div>
 
-            <div class="glass p-5 rounded flex flex-col justify-between">
+        <div class="glass p-6 rounded-lg mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-4">
+                <div id="rankBadge" class="w-16 h-16 rounded-full flex items-center justify-center text-3xl bg-gray-800 border-2 border-gray-600 shadow-lg">🥉</div>
                 <div>
-                    <h3 class="text-gray-500 text-[10px] uppercase tracking-widest mb-4">Access Control</h3>
-                    <p class="text-xs text-gray-400 mb-6">Manually override API access. Disabling will reject all incoming requests linked to this key.</p>
+                    <h3 class="text-sm text-gray-400 uppercase">Current Rank</h3>
+                    <h2 id="rankName" class="text-xl font-bold text-white">BRONZE</h2>
                 </div>
-                
-                <div class="text-center">
-                    <div id="statusIndicator" class="text-xs font-bold mb-3 text-green-500">● SYSTEM ACTIVE</div>
-                    <button id="toggleBtn" onclick="toggleApi()" class="w-full py-3 border border-green-500 text-green-500 hover:bg-green-500/10 text-xs font-bold transition">
-                        DEACTIVATE API
-                    </button>
+            </div>
+            
+            <div class="w-full md:w-1/2">
+                <div class="flex justify-between text-xs mb-1"><span>Daily Usage</span><span id="limitText">0 / 50</span></div>
+                <div class="w-full bg-gray-700 h-2 rounded-full overflow-hidden">
+                    <div id="limitBar" class="bg-cyber h-full w-0 transition-all duration-500"></div>
+                </div>
+                <div class="mt-2 text-right">
+                    <a id="increaseBtn" href="#" target="_blank" class="text-[10px] border border-blue-600 px-2 py-1 rounded text-blue-400 hover:bg-blue-600 hover:text-white transition">⚡ INCREASE LIMIT</a>
                 </div>
             </div>
         </div>
 
-        <div class="mt-8 text-center text-[10px] text-gray-700">
-            SECURE CONNECTION • ENCRYPTED • V2.1.0 BUILD
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="glass p-4 rounded">
+                <h3 class="text-gray-500 text-[10px] uppercase mb-2">📅 Monthly Activity (30 Days)</h3>
+                <div class="h-40">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+            <div class="glass p-4 rounded">
+                <h3 class="text-gray-500 text-[10px] uppercase mb-2">🕐 Today's Traffic (Hourly)</h3>
+                <div class="h-40">
+                    <canvas id="todayChart"></canvas>
+                </div>
+            </div>
         </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">TOTAL HITS</h3>
+                <h2 id="myHits" class="text-2xl font-bold mt-1 text-cyber">0</h2>
+            </div>
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">USED TODAY</h3>
+                <h2 id="todayHits" class="text-2xl font-bold mt-1 text-white">0</h2>
+            </div>
+            <div class="glass p-4 rounded text-center border-l-2" id="speedCard">
+                <h3 class="text-gray-500 text-[10px]">LATENCY</h3>
+                <h2 id="speedVal" class="text-2xl font-bold mt-1">0ms</h2>
+            </div>
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">DB SONGS</h3>
+                <h2 id="totalSongs" class="text-2xl font-bold mt-1">0</h2>
+            </div>
+        </div>
+
+        <button id="toggleBtn" onclick="toggleApi()" class="w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition">SYSTEM ACTIVE</button>
+        <div class="text-center mt-8 text-[10px] text-gray-600">ENCRYPTED • V4.0 ANALYTICS</div>
     </div>
 
     <script>
+        const ADMIN_TG = "https://t.me/zyroo100"; 
+        const API_BASE = ""; 
         let myKey = localStorage.getItem("apiKey") || "";
-        let chart;
-        
-        // Auto Login Check
-        if(myKey) {
-            document.getElementById("apiKeyInput").value = myKey;
-            login();
-        }
+        let monthlyChartInstance, todayChartInstance;
+
+        // Theme Init
+        if (localStorage.getItem("theme") === "light") toggleTheme();
+
+        // Auto Login
+        if(myKey) { document.getElementById("apiKeyInput").value = myKey; login(); }
 
         async function login() {
             const key = document.getElementById("apiKeyInput").value.trim();
             if(!key) return;
-
-            document.getElementById("loginError").classList.add("hidden");
-            
             try {
-                // Initial Fetch
-                const res = await fetch(`/api/user/stats?key=${key}`);
+                const res = await fetch(`${API_BASE}/api/user/stats?key=${key}`);
                 const data = await res.json();
-
                 if(data.status === 200) {
                     myKey = key;
-                    localStorage.setItem("apiKey", key); // Save Cookie
-                    
+                    localStorage.setItem("apiKey", key);
                     document.getElementById("loginScreen").classList.add("hidden");
                     document.getElementById("dashboard").classList.remove("hidden");
-                    document.getElementById("dispKey").innerText = key;
+                    document.getElementById("increaseBtn").href = `${ADMIN_TG}?start=limit_increase_${key}`;
                     
-                    initChart();
                     renderData(data);
-                    
-                    // Start Loop (15s)
+                    initGraphs(data.graphs); // Initialize Charts
                     setInterval(fetchData, 15000);
                 } else {
                     document.getElementById("loginError").classList.remove("hidden");
-                    localStorage.removeItem("apiKey");
                 }
-            } catch(e) {
-                console.error(e);
-                alert("Connection Failed");
-            }
-        }
-
-        function logout() {
-            localStorage.removeItem("apiKey");
-            location.reload();
+            } catch(e) { console.error(e); }
         }
 
         async function fetchData() {
-            const res = await fetch(`/api/user/stats?key=${myKey}`);
+            const res = await fetch(`${API_BASE}/api/user/stats?key=${myKey}`);
             const data = await res.json();
             renderData(data);
+            updateGraphs(data.graphs);
         }
 
         function renderData(data) {
-            // 1. Text Stats
+            // Basic Info
+            document.getElementById("dispName").innerText = data.user_data.username || "User";
+            document.getElementById("newUsername").value = data.user_data.username || ""; // Prefill modal
             document.getElementById("myHits").innerText = data.user_data.hits;
+            document.getElementById("todayHits").innerText = data.user_data.today;
             document.getElementById("totalSongs").innerText = data.global_data.total_songs;
-            document.getElementById("globalHits").innerText = data.global_data.total_requests;
-            
-            // 2. Speed Logic & Color Coding
+
+            // Rank & Limit
+            updateRank(data.user_data.hits);
+            const limit = data.user_data.limit;
+            document.getElementById("limitText").innerText = `${data.user_data.today} / ${limit}`; // Showing Today/Limit now
+            const pct = Math.min((data.user_data.today / limit) * 100, 100);
+            document.getElementById("limitBar").style.width = `${pct}%`;
+
+            // Leaderboard
+            const lbList = document.getElementById("lbList");
+            lbList.innerHTML = "";
+            data.global_data.leaderboard.forEach((u, i) => {
+                const medals = ["🥇", "🥈", "🥉", "👤", "👤"];
+                lbList.innerHTML += `<div class="flex justify-between items-center border-b border-gray-700 pb-2"><span class="text-sm">${medals[i] || "👤"} ${u.name}</span><span class="font-bold text-cyber">${u.hits}</span></div>`;
+            });
+
+            // Speed & Status
             const speed = data.system.api_speed;
-            const speedCard = document.getElementById("speedCard");
-            const speedBar = document.getElementById("speedBar");
+            document.getElementById("speedVal").innerText = speed + "ms";
+            const sCard = document.getElementById("speedCard");
+            sCard.className = `glass p-4 rounded text-center border-l-2 ${speed < 300 ? 'border-green-500' : 'border-red-500'}`;
             
-            document.getElementById("speedVal").innerText = speed;
-            
-            // Color Logic
-            speedCard.classList.remove("border-green-500", "border-yellow-500", "border-red-500");
-            speedBar.classList.remove("bg-green-500", "bg-yellow-500", "bg-red-500");
-
-            if (speed < 300) {
-                speedCard.classList.add("border-green-500");
-                speedBar.classList.add("bg-green-500");
-                speedBar.style.width = "20%";
-            } else if (speed < 800) {
-                speedCard.classList.add("border-yellow-500");
-                speedBar.classList.add("bg-yellow-500");
-                speedBar.style.width = "60%";
-            } else {
-                speedCard.classList.add("border-red-500");
-                speedBar.classList.add("bg-red-500");
-                speedBar.style.width = "100%";
-            }
-
-            // 3. Alerts
-            if(data.system.alert) {
-                // Show only if not already seen in session (optional logic) or always show
-                document.getElementById("alertMsg").innerText = data.system.alert;
-                document.getElementById("alertModal").classList.remove("hidden");
-            }
-
-            // 4. Server Warning
             const warn = document.getElementById("serverWarning");
-            if(data.system.catbox_status === "DOWN") warn.classList.remove("hidden");
-            else warn.classList.add("hidden");
-
-            // 5. Chart Update
-            updateChart(speed);
-
-            // 6. Active Status Button
-            updateToggleBtn(data.user_data.active);
+            if(data.system.catbox_status === "DOWN") warn.classList.remove("hidden"); else warn.classList.add("hidden");
         }
 
-        function updateToggleBtn(isActive) {
-            const btn = document.getElementById("toggleBtn");
-            const ind = document.getElementById("statusIndicator");
+        // --- PROFILE UPDATE LOGIC ---
+        function toggleProfileModal() { document.getElementById("profileModal").classList.toggle("hidden"); }
+        
+        async function updateProfile() {
+            const newName = document.getElementById("newUsername").value;
+            if(!newName) return;
             
-            if(isActive) {
-                ind.innerText = "● SYSTEM ACTIVE";
-                ind.className = "text-xs font-bold mb-3 text-green-500";
-                btn.innerText = "DEACTIVATE API";
-                btn.className = "w-full py-3 border border-red-500 text-red-500 hover:bg-red-500/10 text-xs font-bold transition";
-                btn.onclick = () => toggleApi('off');
-            } else {
-                ind.innerText = "● SYSTEM PAUSED";
-                ind.className = "text-xs font-bold mb-3 text-red-500";
-                btn.innerText = "ACTIVATE API";
-                btn.className = "w-full py-3 border border-green-500 text-green-500 hover:bg-green-500/10 text-xs font-bold transition";
-                btn.onclick = () => toggleApi('on');
-            }
+            await fetch(`${API_BASE}/api/user/update_profile`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: myKey, username: newName })
+            });
+            toggleProfileModal();
+            fetchData(); // Refresh UI
         }
 
-        async function toggleApi(action) {
-            await fetch(`/api/user/toggle?key=${myKey}&action=${action}`);
-            fetchData(); // Refresh UI immediately
-        }
+        // --- GRAPH LOGIC ---
+        function initGraphs(graphs) {
+            // Monthly Chart (Bar)
+            const ctx1 = document.getElementById('monthlyChart').getContext('2d');
+            monthlyChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: Array.from({length: 30}, (_, i) => i + 1),
+                    datasets: [{
+                        label: 'Hits',
+                        data: graphs.monthly,
+                        backgroundColor: '#00ff9d',
+                        borderRadius: 2
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
+            });
 
-        function closeAlert() {
-            document.getElementById("alertModal").classList.add("hidden");
-        }
-
-        // --- CHART JS ---
-        function initChart() {
-            const ctx = document.getElementById('liveChart').getContext('2d');
-            chart = new Chart(ctx, {
+            // Today Chart (Line)
+            const ctx2 = document.getElementById('todayChart').getContext('2d');
+            todayChartInstance = new Chart(ctx2, {
                 type: 'line',
                 data: {
-                    labels: Array(10).fill(''),
+                    labels: Array.from({length: 24}, (_, i) => `${i}:00`),
                     datasets: [{
-                        label: 'Latency (ms)',
-                        data: Array(10).fill(0),
-                        borderColor: '#00ff9d',
-                        backgroundColor: 'rgba(0, 255, 157, 0.05)',
-                        borderWidth: 1.5,
-                        tension: 0.4,
+                        label: 'Hourly Hits',
+                        data: graphs.today,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
                         fill: true,
+                        tension: 0.4,
                         pointRadius: 0
                     }]
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { display: false },
-                        y: { 
-                            border: { display: false },
-                            grid: { color: '#222' },
-                            ticks: { color: '#555', font: {family: 'JetBrains Mono'} }
-                        }
-                    },
-                    animation: false
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } }
             });
         }
 
-        function updateChart(val) {
-            if(!chart) return;
-            const data = chart.data.datasets[0].data;
-            data.shift();
-            data.push(val);
-            chart.update();
+        function updateGraphs(graphs) {
+            if(monthlyChartInstance) {
+                monthlyChartInstance.data.datasets[0].data = graphs.monthly;
+                monthlyChartInstance.update();
+            }
+            if(todayChartInstance) {
+                todayChartInstance.data.datasets[0].data = graphs.today;
+                todayChartInstance.update();
+            }
         }
+
+        // Helpers
+        function toggleLeaderboard() { document.getElementById("leaderboardModal").classList.toggle("hidden"); }
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.classList.contains('dark')) { html.classList.remove('dark'); html.classList.add('light'); localStorage.setItem("theme", "light"); document.getElementById("themeIcon").innerText = "🌙"; }
+            else { html.classList.remove('light'); html.classList.add('dark'); localStorage.setItem("theme", "dark"); document.getElementById("themeIcon").innerText = "☀️"; }
+        }
+        function updateRank(hits) {
+            const badge = document.getElementById("rankBadge");
+            const name = document.getElementById("rankName");
+            if(hits > 5000) { badge.innerText = "💎"; name.innerText = "DIAMOND"; name.className="text-xl font-bold text-blue-400"; }
+            else if(hits > 2000) { badge.innerText = "🥇"; name.innerText = "GOLD"; name.className="text-xl font-bold text-yellow-400"; }
+            else if(hits > 500) { badge.innerText = "🥈"; name.innerText = "SILVER"; name.className="text-xl font-bold text-gray-300"; }
+            else { badge.innerText = "🥉"; name.innerText = "BRONZE"; name.className="text-xl font-bold text-orange-400"; }
+        }
+        function logout() { localStorage.removeItem("apiKey"); location.reload(); }
     </script>
 </body>
 </html>
-
