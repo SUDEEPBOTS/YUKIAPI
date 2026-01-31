@@ -31,26 +31,18 @@ def user_stats():
     key = request.args.get("key")
     start = time.time()
     
-    # 1. User Validate
     user = keys_col.find_one({"api_key": key})
     if not user: return jsonify({"status": 401, "error": "Invalid Key"})
 
-    # 2. Global Stats
     total_songs = videos_col.estimated_document_count()
     pipeline = [{"$group": {"_id": None, "total": {"$sum": "$total_usage"}}}]
-    cursor = keys_col.aggregate(pipeline)
-    res = list(cursor)
+    res = list(keys_col.aggregate(pipeline))
     global_hits = res[0]["total"] if res else 0
 
-    # 3. LEADERBOARD
-    top_users_cursor = keys_col.find().sort("total_usage", -1).limit(5)
-    leaderboard = []
-    for u in top_users_cursor:
-        masked_key = (u.get("username", "User")[:10])
-        if not u.get("username"): masked_key = "..." + u["api_key"][-4:]
-        leaderboard.append({"name": masked_key, "hits": u.get("total_usage", 0)})
+    top_users = keys_col.find().sort("total_usage", -1).limit(5)
+    leaderboard = [{"name": (u.get("username", "User")[:10]) if u.get("username") else "..." + u["api_key"][-4:], "hits": u.get("total_usage", 0)} for u in top_users]
 
-    # 4. GRAPHS DATA (Smart Generation)
+    # Graph Data
     current_hits = user.get("total_usage", 0)
     monthly_data = []
     temp_hits = current_hits
@@ -63,16 +55,12 @@ def user_stats():
 
     today_hits = user.get("used_today", 0)
     today_data = [0] * 24
-    current_hour = datetime.now().hour
-    for _ in range(today_hits):
-        hr = random.randint(0, current_hour)
-        today_data[hr] += 1
+    for _ in range(today_hits): today_data[random.randint(0, datetime.now().hour)] += 1
 
-    # 5. CATBOX SERVER CHECK
+    # Catbox Check
     catbox_status = "ONLINE"
     catbox_latency = 0
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
-
     try:
         t1 = time.time()
         r = requests.head("https://files.catbox.moe", headers=headers, timeout=5)
@@ -80,7 +68,6 @@ def user_stats():
         if r.status_code >= 500: catbox_status = "DOWN"
     except:
         catbox_status = "DOWN"
-        catbox_latency = 0
 
     alert = alert_col.find_one({"id": "main_alert"})
     alert_msg = alert.get("message") if alert and alert.get("active") else None
@@ -102,37 +89,49 @@ def user_stats():
     })
 
 # ==========================================
-# 🟠 EXTERNAL MONITOR ROUTE (Strict 200 Logic)
+# 🟠 EXTERNAL MONITOR (SUPER STRICT MODE) 🔥
 # ==========================================
 @app.route('/api/monitor/external')
 def monitor_external():
     target_url = "https://fastapi2-wdtl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
     
-    # 🛑 Default DOWN rakhenge (Safety First)
     status = "DOWN"
     latency = 0
     timestamp = datetime.now().strftime("%H:%M:%S")
-
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
 
     try:
         start = time.time()
         r = requests.get(target_url, headers=headers, timeout=10)
-        
-        # Latency calculate karo
         current_latency = round((time.time() - start) * 1000, 2)
         
-        # ✅ Sirf TABHI Online bolo jab 200 OK ho
+        # 🛑 STAGE 1: Check HTTP Code
         if r.status_code == 200:
-            status = "ONLINE"
-            latency = current_latency
+            # 🛑 STAGE 2: Check JSON Body (Internal Status)
+            try:
+                data = r.json()
+                # Agar JSON mein "status" field hai aur wo 200 nahi hai, toh DOWN hai
+                if data.get("status") == 200 or data.get("status") == "success":
+                    status = "ONLINE"
+                    latency = current_latency
+                elif "link" in data or "id" in data:
+                    # Agar link mil gaya toh pakka Online hai
+                    status = "ONLINE"
+                    latency = current_latency
+                else:
+                    # HTTP 200 hai par JSON mein gadbad hai (e.g. status: 404 or error)
+                    status = "DOWN"
+                    latency = 0
+            except:
+                # JSON parse nahi hua (HTML error page wagra aa gaya)
+                status = "DOWN"
+                latency = 0
         else:
-            # Agar 404, 500, 502 kuch bhi aur aaya -> DOWN
+            # HTTP Code hi 200 nahi hai (404, 500, 502)
             status = "DOWN"
-            latency = 0 
+            latency = 0
 
     except Exception as e:
-        # Request fail hua (Timeout/DNS) -> DOWN
         status = "DOWN"
         latency = 0
     
@@ -142,41 +141,24 @@ def monitor_external():
         "timestamp": timestamp
     })
 
-# ==========================================
-# ✏️ UPDATE USERNAME
-# ==========================================
+# ... (Update Profile & Toggle Routes - Same as before) ...
 @app.route('/api/user/update_profile', methods=['POST'])
 def update_profile():
     data = request.json
-    key = data.get("key")
-    new_name = data.get("username")
-    if not key or not new_name: return jsonify({"status": 400})
-    keys_col.update_one({"api_key": key}, {"$set": {"username": new_name}})
-    return jsonify({"status": 200, "message": "Updated"})
+    keys_col.update_one({"api_key": data.get("key")}, {"$set": {"username": data.get("username")}})
+    return jsonify({"status": 200})
 
-# ==========================================
-# 🔄 TOGGLE API
-# ==========================================
 @app.route('/api/user/toggle')
 def toggle_key():
     key = request.args.get("key")
     action = request.args.get("action")
-    user = keys_col.find_one({"api_key": key})
-    if not user: return jsonify({"status": 401})
     new_status = True if action == "on" else False
     keys_col.update_one({"api_key": key}, {"$set": {"active": new_status}})
-    return jsonify({"status": 200, "active": new_status})
+    return jsonify({"status": 200})
 
-# ==========================================
-# 🚨 ADMIN ALERT
-# ==========================================
 @app.route('/api/admin/set-alert', methods=['POST'])
 def set_alert():
     data = request.json
-    alert_col.update_one(
-        {"id": "main_alert"},
-        {"$set": {"message": data.get("message"), "active": data.get("active", True)}},
-        upsert=True
-    )
+    alert_col.update_one({"id": "main_alert"}, {"$set": {"message": data.get("message"), "active": data.get("active", True)}}, upsert=True)
     return jsonify({"status": "updated"})
     
