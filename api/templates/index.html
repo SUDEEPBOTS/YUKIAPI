@@ -14,7 +14,7 @@
                     colors: {
                         cyber: '#00ff9d',
                         catbox: '#a855f7',
-                        render: '#f97316', // 🟠 Orange for Render API
+                        render: '#f97316',
                         darkbg: '#0a0a0a',
                         glass: 'rgba(255, 255, 255, 0.05)'
                     }
@@ -59,6 +59,15 @@
             <button onclick="toggleLeaderboard()" class="absolute top-2 right-4 text-red-500 font-bold">X</button>
             <h3 class="text-cyber font-bold text-xl mb-4 text-center">🏆 TOP USERS</h3>
             <div id="lbList" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <div id="alertModal" class="hidden absolute inset-0 z-50 bg-black/90 flex items-center justify-center backdrop-blur-md">
+        <div class="glass border-2 border-red-500 p-6 max-w-md w-full rounded relative shadow-[0_0_50px_rgba(255,0,0,0.3)] text-center">
+            <div class="text-5xl mb-4">⚠️</div>
+            <h3 class="text-red-500 font-bold text-2xl mb-2 tracking-widest">SYSTEM ALERT</h3>
+            <p id="alertMsg" class="text-white text-md mb-6 font-mono bg-red-900/30 p-3 rounded border border-red-500/50">...</p>
+            <button onclick="closeAlert()" class="w-full border border-red-500 text-red-500 hover:bg-red-600 hover:text-white py-3 font-bold transition uppercase">Acknowledge & Close</button>
         </div>
     </div>
 
@@ -115,11 +124,31 @@
             </div>
         </div>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">TOTAL HITS</h3><h2 id="myHits" class="text-2xl font-bold mt-1 text-cyber">0</h2></div>
-            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">USED TODAY</h3><h2 id="todayHits" class="text-2xl font-bold mt-1 text-white">0</h2></div>
-            <div class="glass p-4 rounded text-center border-l-2" id="speedCard"><h3 class="text-gray-500 text-[10px]">LATENCY</h3><h2 id="speedVal" class="text-2xl font-bold mt-1">0ms</h2></div>
-            <div class="glass p-4 rounded text-center"><h3 class="text-gray-500 text-[10px]">DB SONGS</h3><h2 id="totalSongs" class="text-2xl font-bold mt-1">0</h2></div>
+        <div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">TOTAL HITS</h3>
+                <h2 id="myHits" class="text-2xl font-bold mt-1 text-cyber">0</h2>
+            </div>
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">USED TODAY</h3>
+                <h2 id="todayHits" class="text-2xl font-bold mt-1 text-white">0</h2>
+            </div>
+            <div class="glass p-4 rounded text-center">
+                <h3 class="text-gray-500 text-[10px]">DB SONGS</h3>
+                <h2 id="totalSongs" class="text-2xl font-bold mt-1">0</h2>
+            </div>
+            <div class="glass p-4 rounded text-center border-l-2 border-cyber" id="speedCard">
+                <h3 class="text-gray-500 text-[10px]">MAIN LATENCY</h3>
+                <h2 id="speedVal" class="text-2xl font-bold mt-1">0ms</h2>
+            </div>
+            <div class="glass p-4 rounded text-center border-l-2 border-render">
+                <h3 class="text-gray-500 text-[10px]">RENDER SPEED</h3>
+                <h2 id="renderSpeedBox" class="text-2xl font-bold mt-1 text-render">0ms</h2>
+            </div>
+            <div class="glass p-4 rounded text-center border-l-2 border-catbox">
+                <h3 class="text-gray-500 text-[10px]">CATBOX SPEED</h3>
+                <h2 id="catboxSpeedBox" class="text-2xl font-bold mt-1 text-catbox">0ms</h2>
+            </div>
         </div>
 
         <div class="glass p-4 rounded mb-6 border-t-2 border-render">
@@ -130,7 +159,6 @@
                 </div>
                 <div class="text-right">
                     <p class="text-[10px] text-gray-500">LAST CHECK: <span id="renderLastCheck" class="text-white">--:--:--</span></p>
-                    <p class="text-[10px] text-gray-500">SPEED: <span id="renderSpeed" class="text-render font-bold">0ms</span></p>
                 </div>
             </div>
             <div id="renderWarning" class="hidden bg-red-900/50 text-red-400 text-xs text-center p-2 rounded mb-2 font-bold animate-pulse">
@@ -155,7 +183,7 @@
         </div>
 
         <button id="toggleBtn" onclick="toggleApi()" class="w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition">SYSTEM ACTIVE</button>
-        <div class="text-center mt-8 text-[10px] text-gray-600">ENCRYPTED • V6.0 TRINITY CORE</div>
+        <div class="text-center mt-8 text-[10px] text-gray-600">ENCRYPTED • V6.5 TRINITY CORE</div>
     </div>
 
     <script>
@@ -165,6 +193,7 @@
         
         let monthlyChartInstance, todayChartInstance, liveChartInstance, catboxChartInstance, renderChartInstance;
         let isSystemActive = true;
+        let alertSeen = false; 
 
         if (localStorage.getItem("theme") === "light") toggleTheme();
         if(myKey) { document.getElementById("apiKeyInput").value = myKey; login(); }
@@ -184,20 +213,17 @@
                     
                     renderMainStats(data);
                     
-                    // INIT ALL CHARTS
                     initGraphs(data.graphs);
-                    initLiveChart(); // Green
-                    initRenderChart(); // Orange (New)
-                    initCatboxChart(); // Purple
+                    initLiveChart(); 
+                    initRenderChart(); 
+                    initCatboxChart(); 
 
                     updateToggleBtnUI(data.user_data.active);
 
-                    // 🚀 TRIPLE LOOP SYSTEM
-                    setInterval(fetchData, 15000);    // Main Data + Catbox (15s)
-                    setInterval(fetchLiveSpeed, 9000); // Main Speed (3s)
-                    setInterval(fetchRenderApi, 3000);// Render API (13s) <-- NEW LOOP
+                    setInterval(fetchData, 15000);    
+                    setInterval(fetchLiveSpeed, 3000); 
+                    setInterval(fetchRenderApi, 13000);
 
-                    // Initial Call
                     fetchRenderApi();
                 } else {
                     document.getElementById("loginError").classList.remove("hidden");
@@ -205,25 +231,40 @@
             } catch(e) { console.error(e); }
         }
 
-        // --- 1. MAIN DATA LOOP (15s) ---
         async function fetchData() {
             const res = await fetch(`${API_BASE}/api/user/stats?key=${myKey}`);
             const data = await res.json();
             renderMainStats(data);
             updateGraphs(data.graphs);
 
-            // Catbox Update
+            // 🚨 Alert Logic Fixed
+            if(data.system.alert && !alertSeen) {
+                document.getElementById("alertMsg").innerText = data.system.alert;
+                document.getElementById("alertModal").classList.remove("hidden");
+                alertSeen = true;
+            }
+            if(!data.system.alert) {
+                alertSeen = false; 
+                document.getElementById("alertModal").classList.add("hidden");
+            }
+
+            // Catbox Updates (Graph & New Speed Box)
             const cLat = data.system.catbox_latency || 0;
             updateChart(catboxChartInstance, cLat);
+            
+            // 🔥 Update New Catbox Box
+            document.getElementById("catboxSpeedBox").innerText = cLat + "ms";
+
             const cText = document.getElementById("catboxStatusText");
             if(data.system.catbox_status === "DOWN") {
                 cText.innerText = "⚠️ DOWN"; cText.className = "text-xs font-bold text-red-500 blink";
+                document.getElementById("catboxSpeedBox").className = "text-2xl font-bold mt-1 text-red-500";
             } else {
                 cText.innerText = `ONLINE (${cLat}ms)`; cText.className = "text-xs font-bold text-catbox";
+                document.getElementById("catboxSpeedBox").className = "text-2xl font-bold mt-1 text-catbox";
             }
         }
 
-        // --- 2. LIVE SPEED LOOP (3s) ---
         async function fetchLiveSpeed() {
             const start = Date.now();
             try {
@@ -238,7 +279,6 @@
             } catch(e) {}
         }
 
-        // --- 3. EXTERNAL RENDER API LOOP (13s) ---
         async function fetchRenderApi() {
             try {
                 const res = await fetch(`${API_BASE}/api/monitor/external`);
@@ -246,22 +286,27 @@
                 
                 const statusBadge = document.getElementById("renderStatus");
                 const warningBox = document.getElementById("renderWarning");
-                const speedText = document.getElementById("renderSpeed");
+                const renderSpeedBox = document.getElementById("renderSpeedBox"); // New Box
+                
                 document.getElementById("renderLastCheck").innerText = data.timestamp;
 
                 if (data.status === "ONLINE") {
-                    statusBadge.innerText = "ONLINE";
-                    statusBadge.className = "text-[10px] bg-green-900 text-green-400 px-2 rounded font-bold";
+                    statusBadge.innerText = "ONLINE"; statusBadge.className = "text-[10px] bg-green-900 text-green-400 px-2 rounded font-bold";
                     warningBox.classList.add("hidden");
-                    speedText.innerText = data.latency + "ms";
-                    speedText.className = "text-render font-bold";
+                    
+                    // 🔥 Update New Render Box
+                    renderSpeedBox.innerText = data.latency + "ms";
+                    renderSpeedBox.className = "text-2xl font-bold mt-1 text-render";
+                    
                     updateChart(renderChartInstance, data.latency);
                 } else {
-                    statusBadge.innerText = "OFFLINE";
-                    statusBadge.className = "text-[10px] bg-red-900 text-red-400 px-2 rounded font-bold blink";
+                    statusBadge.innerText = "OFFLINE"; statusBadge.className = "text-[10px] bg-red-900 text-red-400 px-2 rounded font-bold blink";
                     warningBox.classList.remove("hidden");
-                    speedText.innerText = "0ms";
-                    speedText.className = "text-red-500 font-bold";
+                    
+                    // Update New Box to Error State
+                    renderSpeedBox.innerText = "0ms";
+                    renderSpeedBox.className = "text-2xl font-bold mt-1 text-red-500";
+                    
                     updateChart(renderChartInstance, 0);
                 }
             } catch(e) { console.error("Monitor Error", e); }
@@ -273,20 +318,17 @@
             document.getElementById("myHits").innerText = data.user_data.hits;
             document.getElementById("todayHits").innerText = data.user_data.today;
             document.getElementById("totalSongs").innerText = data.global_data.total_songs;
-
             updateRank(data.user_data.hits);
             const limit = data.user_data.limit;
             document.getElementById("limitText").innerText = `${data.user_data.today} / ${limit}`;
             const pct = Math.min((data.user_data.today / limit) * 100, 100);
             document.getElementById("limitBar").style.width = `${pct}%`;
 
-            const lbList = document.getElementById("lbList");
-            lbList.innerHTML = "";
+            const lbList = document.getElementById("lbList"); lbList.innerHTML = "";
             data.global_data.leaderboard.forEach((u, i) => {
                 const medals = ["🥇", "🥈", "🥉", "👤", "👤"];
                 lbList.innerHTML += `<div class="flex justify-between items-center border-b border-gray-700 pb-2"><span class="text-sm">${medals[i] || "👤"} ${u.name}</span><span class="font-bold text-cyber">${u.hits}</span></div>`;
             });
-
             const warn = document.getElementById("serverWarning");
             if(data.system.catbox_status === "DOWN") warn.classList.remove("hidden"); else warn.classList.add("hidden");
         }
@@ -294,59 +336,30 @@
         function updateToggleBtnUI(active) {
             isSystemActive = active;
             const btn = document.getElementById("toggleBtn");
-            if(active) {
-                btn.innerText = "SYSTEM ACTIVE (CLICK TO PAUSE)";
-                btn.className = "w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition";
-            } else {
-                btn.innerText = "SYSTEM PAUSED (CLICK TO RESUME)";
-                btn.className = "w-full py-4 border border-red-500 text-red-500 font-bold rounded hover:bg-red-500 hover:text-black transition";
-            }
+            if(active) { btn.innerText = "SYSTEM ACTIVE (CLICK TO PAUSE)"; btn.className = "w-full py-4 border border-green-500 text-green-500 font-bold rounded hover:bg-green-500 hover:text-black transition"; } 
+            else { btn.innerText = "SYSTEM PAUSED (CLICK TO RESUME)"; btn.className = "w-full py-4 border border-red-500 text-red-500 font-bold rounded hover:bg-red-500 hover:text-black transition"; }
         }
 
-        async function toggleApi() {
-            const action = isSystemActive ? "off" : "on";
-            updateToggleBtnUI(!isSystemActive);
-            await fetch(`${API_BASE}/api/user/toggle?key=${myKey}&action=${action}`);
-            fetchData();
-        }
+        async function toggleApi() { isSystemActive = !isSystemActive; updateToggleBtnUI(isSystemActive); await fetch(`${API_BASE}/api/user/toggle?key=${myKey}&action=${isSystemActive?'on':'off'}`); fetchData(); }
+        
+         // 🚨 Close Function
+        function closeAlert() { document.getElementById("alertModal").classList.add("hidden"); }
 
-                // --- CHARTS CONFIG ---
         function initGraphs(graphs) {
             const ctx1 = document.getElementById('monthlyChart').getContext('2d');
             monthlyChartInstance = new Chart(ctx1, { type: 'bar', data: { labels: Array.from({length: 30}, (_, i) => i + 1), datasets: [{ label: 'Hits', data: graphs.monthly, backgroundColor: '#00ff9d', borderRadius: 2 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } });
             const ctx2 = document.getElementById('todayChart').getContext('2d');
             todayChartInstance = new Chart(ctx2, { type: 'line', data: { labels: Array.from({length: 24}, (_, i) => `${i}:00`), datasets: [{ label: 'Hourly', data: graphs.today, borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: false } } } });
         }
-        
         function initLiveChart() { liveChartInstance = createLineChart(document.getElementById('liveChart').getContext('2d'), '#00ff9d'); }
         function initCatboxChart() { catboxChartInstance = createLineChart(document.getElementById('catboxChart').getContext('2d'), '#a855f7'); }
-        function initRenderChart() { renderChartInstance = createLineChart(document.getElementById('renderChart').getContext('2d'), '#f97316'); } // Orange
+        function initRenderChart() { renderChartInstance = createLineChart(document.getElementById('renderChart').getContext('2d'), '#f97316'); }
 
         function createLineChart(ctx, color) {
-            return new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(20).fill(''),
-                    datasets: [{ data: Array(20).fill(0), borderColor: color, backgroundColor: color + '10', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0 }]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                    scales: { x: { display: false }, y: { display: true, grid: { color: '#333' } } }, animation: { duration: 0 }
-                }
-            });
+            return new Chart(ctx, { type: 'line', data: { labels: Array(20).fill(''), datasets: [{ data: Array(20).fill(0), borderColor: color, backgroundColor: color + '10', borderWidth: 2, tension: 0.3, fill: true, pointRadius: 0 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { display: false }, y: { display: true, grid: { color: '#333' } } }, animation: { duration: 0 } } });
         }
-
-        function updateChart(chart, val) {
-            if(!chart) return;
-            const data = chart.data.datasets[0].data;
-            data.shift(); data.push(val); chart.update();
-        }
-
-        function updateGraphs(graphs) {
-            if(monthlyChartInstance) { monthlyChartInstance.data.datasets[0].data = graphs.monthly; monthlyChartInstance.update(); }
-            if(todayChartInstance) { todayChartInstance.data.datasets[0].data = graphs.today; todayChartInstance.update(); }
-        }
-
+        function updateChart(chart, val) { if(!chart) return; const data = chart.data.datasets[0].data; data.shift(); data.push(val); chart.update(); }
+        function updateGraphs(graphs) { if(monthlyChartInstance) { monthlyChartInstance.data.datasets[0].data = graphs.monthly; monthlyChartInstance.update(); } if(todayChartInstance) { todayChartInstance.data.datasets[0].data = graphs.today; todayChartInstance.update(); } }
         function toggleProfileModal() { document.getElementById("profileModal").classList.toggle("hidden"); }
         async function updateProfile() { const newName = document.getElementById("newUsername").value; if(!newName) return; await fetch(`${API_BASE}/api/user/update_profile`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: myKey, username: newName }) }); toggleProfileModal(); fetchData(); }
         function toggleLeaderboard() { document.getElementById("leaderboardModal").classList.toggle("hidden"); }
