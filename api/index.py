@@ -50,7 +50,7 @@ def user_stats():
         if not u.get("username"): masked_key = "..." + u["api_key"][-4:]
         leaderboard.append({"name": masked_key, "hits": u.get("total_usage", 0)})
 
-    # 4. GRAPHS DATA (Smart Generation - Purana Logic)
+    # 4. GRAPHS DATA (Smart Generation)
     current_hits = user.get("total_usage", 0)
     
     # Generate Monthly Data
@@ -71,14 +71,25 @@ def user_stats():
         hr = random.randint(0, current_hour)
         today_data[hr] += 1
 
-    # 5. CATBOX SERVER CHECK (Updated with Speed) 🟣
+    # 5. CATBOX SERVER CHECK (Updated with Headers) 🟣
     catbox_status = "ONLINE"
     catbox_latency = 0
+    
+    # 👇 HEADERS ADD KIYE HAIN TAACI BLOCK NA HO
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
     try:
         t1 = time.time()
-        r = requests.head("https://files.catbox.moe", timeout=10)
+        # Headers bhej rahe hain ab
+        r = requests.head("https://files.catbox.moe", headers=headers, timeout=5)
         catbox_latency = round((time.time() - t1) * 1000, 2)
-        if r.status_code >= 400: catbox_status = "DOWN"
+        
+        # 403 Forbidden ya 404 aaye toh bhi 'ONLINE' maano agar latency aa rahi hai
+        # Kyunki root URL kabhi kabhi access deny karta hai par server zinda hota hai
+        if r.status_code >= 500: 
+            catbox_status = "DOWN"
     except:
         catbox_status = "DOWN"
         catbox_latency = 0
@@ -109,29 +120,31 @@ def user_stats():
         "system": {
             "api_speed": latency,
             "catbox_status": catbox_status,
-            "catbox_latency": catbox_latency, # <-- Added for Purple Graph
+            "catbox_latency": catbox_latency,
             "alert": alert_msg
         }
     })
 
 # ==========================================
-# 🟠 NEW: EXTERNAL MONITOR ROUTE (For Orange Graph)
+# 🟠 EXTERNAL MONITOR ROUTE
 # ==========================================
 @app.route('/api/monitor/external')
 def monitor_external():
-    # Tera External API URL
     target_url = "https://fastapi2-tl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
-    status = "online"
+    status = "ONLINE"
     latency = 0
     timestamp = datetime.now().strftime("%H:%M:%S")
 
+    # Yahan bhi headers laga dete hain safety ke liye
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+
     try:
         start = time.time()
-        # Request bhej ke check kar rahe hain
-        r = requests.get(target_url, timeout=10)
+        r = requests.get(target_url, headers=headers, timeout=10)
         latency = round((time.time() - start) * 1000, 2)
         
-        # Agar 200 OK nahi aaya toh Down maano
         if r.status_code != 200:
             status = "DOWN"
     except Exception as e:
