@@ -24,7 +24,7 @@ def home():
     return render_template('index.html')
 
 # ==========================================
-# 🚀 USER DASHBOARD API (Updated with Latency)
+# 🚀 USER DASHBOARD API
 # ==========================================
 @app.route('/api/user/stats')
 def user_stats():
@@ -52,8 +52,6 @@ def user_stats():
 
     # 4. GRAPHS DATA (Smart Generation)
     current_hits = user.get("total_usage", 0)
-    
-    # Generate Monthly Data
     monthly_data = []
     temp_hits = current_hits
     for i in range(30):
@@ -63,7 +61,6 @@ def user_stats():
         if temp_hits <= 0: break
     monthly_data.reverse()
 
-    # Generate Today's Hourly Data
     today_hits = user.get("used_today", 0)
     today_data = [0] * 24
     current_hour = datetime.now().hour
@@ -71,25 +68,16 @@ def user_stats():
         hr = random.randint(0, current_hour)
         today_data[hr] += 1
 
-    # 5. CATBOX SERVER CHECK (Updated with Headers) 🟣
+    # 5. CATBOX SERVER CHECK
     catbox_status = "ONLINE"
     catbox_latency = 0
-    
-    # 👇 HEADERS ADD KIYE HAIN TAACI BLOCK NA HO
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
 
     try:
         t1 = time.time()
-        # Headers bhej rahe hain ab
         r = requests.head("https://files.catbox.moe", headers=headers, timeout=5)
         catbox_latency = round((time.time() - t1) * 1000, 2)
-        
-        # 403 Forbidden ya 404 aaye toh bhi 'ONLINE' maano agar latency aa rahi hai
-        # Kyunki root URL kabhi kabhi access deny karta hai par server zinda hota hai
-        if r.status_code >= 500: 
-            catbox_status = "DOWN"
+        if r.status_code >= 500: catbox_status = "DOWN"
     except:
         catbox_status = "DOWN"
         catbox_latency = 0
@@ -108,46 +96,43 @@ def user_stats():
             "plan": user.get("plan", "Free"),
             "username": user.get("username", "User")
         },
-        "global_data": {
-            "total_songs": total_songs,
-            "total_requests": global_hits,
-            "leaderboard": leaderboard
-        },
-        "graphs": {
-            "monthly": monthly_data,
-            "today": today_data
-        },
-        "system": {
-            "api_speed": latency,
-            "catbox_status": catbox_status,
-            "catbox_latency": catbox_latency,
-            "alert": alert_msg
-        }
+        "global_data": { "total_songs": total_songs, "total_requests": global_hits, "leaderboard": leaderboard },
+        "graphs": { "monthly": monthly_data, "today": today_data },
+        "system": { "api_speed": latency, "catbox_status": catbox_status, "catbox_latency": catbox_latency, "alert": alert_msg }
     })
 
 # ==========================================
-# 🟠 EXTERNAL MONITOR ROUTE
+# 🟠 EXTERNAL MONITOR ROUTE (Strict 200 Logic)
 # ==========================================
 @app.route('/api/monitor/external')
 def monitor_external():
     target_url = "https://fastapi2-wdtl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
-    status = "ONLINE"
+    
+    # 🛑 Default DOWN rakhenge (Safety First)
+    status = "DOWN"
     latency = 0
     timestamp = datetime.now().strftime("%H:%M:%S")
 
-    # Yahan bhi headers laga dete hain safety ke liye
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-    }
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0 Safari/537.36"}
 
     try:
         start = time.time()
         r = requests.get(target_url, headers=headers, timeout=10)
-        latency = round((time.time() - start) * 1000, 2)
         
-        if r.status_code != 200:
+        # Latency calculate karo
+        current_latency = round((time.time() - start) * 1000, 2)
+        
+        # ✅ Sirf TABHI Online bolo jab 200 OK ho
+        if r.status_code == 200:
+            status = "ONLINE"
+            latency = current_latency
+        else:
+            # Agar 404, 500, 502 kuch bhi aur aaya -> DOWN
             status = "DOWN"
+            latency = 0 
+
     except Exception as e:
+        # Request fail hua (Timeout/DNS) -> DOWN
         status = "DOWN"
         latency = 0
     
@@ -165,9 +150,7 @@ def update_profile():
     data = request.json
     key = data.get("key")
     new_name = data.get("username")
-    
     if not key or not new_name: return jsonify({"status": 400})
-    
     keys_col.update_one({"api_key": key}, {"$set": {"username": new_name}})
     return jsonify({"status": 200, "message": "Updated"})
 
