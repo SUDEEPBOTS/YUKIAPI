@@ -120,8 +120,8 @@ def user_stats():
 @app.route('/api/monitor/external')
 def monitor_external():
     # Tera External API URL
-    target_url = "https://fastapi2-wdtl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
-    status = "ONLINE"
+    target_url = "https://fastapi2-tl.onrender.com/getvideo?query=kesariya&key=YUKI-D48896353AE8"
+    status = "online"
     latency = 0
     timestamp = datetime.now().strftime("%H:%M:%S")
 
